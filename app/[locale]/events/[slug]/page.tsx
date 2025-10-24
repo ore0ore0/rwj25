@@ -25,16 +25,6 @@ async function readIndexFromBlob(event: string): Promise<ImageItem[]> {
   }
 }
 
-async function readWriteupFromBlob(event: string): Promise<string> {
-  const k = `events/${event}/writeup.txt`;
-  const { blobs } = await list({ prefix: k });
-  const found = blobs.find(b => b.pathname === k);
-  if (!found) return '';
-  const res = await fetch(found.url, { cache: 'no-store' });
-  if (!res.ok) return '';
-  return await res.text();
-}
-
 export default async function EventPage({ params }: { params: any }) {
   const resolved = typeof params?.then === 'function' ? await params : params;
   const rawLocale: Locale = resolved?.locale === 'ko' ? 'ko' : 'en';
@@ -44,17 +34,6 @@ export default async function EventPage({ params }: { params: any }) {
 
   const images = await readIndexFromBlob(slug);
   const sorted: ImageItem[] = [...images].sort((a, b) => a.caption.localeCompare(b.caption));
-  const writeup = await readWriteupFromBlob(slug);
-
-  async function saveWriteup(formData: FormData) {
-    'use server';
-    const content = String(formData.get('content') ?? '');
-    await fetch('/api/writeup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: slug, content })
-    });
-  }
 
   const labels = {
     images: t(locale, 'images'),
@@ -73,21 +52,13 @@ export default async function EventPage({ params }: { params: any }) {
   return (
     <main style={{ display: 'grid', gap: 16 }}>
       <a href={`/${locale}`} className="btn">← {t(locale, 'back')}</a>
-      <div className="grid" style={{ gridTemplateColumns: '1.2fr .8fr' }}>
-        <section>
+      <section className="grid" style={{ gridTemplateColumns: '1fr' }}>
+        <div>
           <Uploader event={slug} labels={uploaderLabels} />
           <div style={{ height: 12 }} />
           <ImageGallery event={slug} items={sorted} labels={labels} />
-        </section>
-
-        <aside className="card">
-          <h3 style={{ marginTop: 0 }}>{t(locale, 'writeup')}</h3>
-          <form action={saveWriteup} style={{ display: 'grid', gap: 12 }}>
-            <textarea name="content" rows={14} className="input" placeholder={t(locale, 'writeupPlaceholder')} defaultValue={writeup} />
-            <button className="btn" type="submit">{t(locale, 'updateWriteup')}</button>
-          </form>
-        </aside>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }
